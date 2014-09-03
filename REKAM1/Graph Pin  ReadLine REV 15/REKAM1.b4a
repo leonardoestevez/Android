@@ -1,0 +1,884 @@
+﻿Version=3.82
+IconFile=
+NumberOfModules=1
+Module1=rekam1
+Build1=Default,b4a.menu1
+DoNotOverwriteManifest=False
+ManifestCode='This code will be applied to the manifest file during compilation.~\n~'You do not need to modify it in most cases.~\n~'See this link for for more information: http://www.basic4ppc.com/forum/showthread.php?p=78136~\n~AddManifestText(~\n~<uses-sdk android:minSdkVersion="4" android:targetSdkVersion="14"/>~\n~<supports-screens android:largeScreens="true" ~\n~    android:normalScreens="true" ~\n~    android:smallScreens="true" ~\n~    android:anyDensity="true"/>)~\n~SetApplicationAttribute(android:icon, "@drawable/icon")~\n~SetApplicationAttribute(android:label, "$LABEL$")~\n~'End of default text.~\n~
+NumberOfFiles=6
+File1=ConnectBT.bal
+File2=Graph.bal
+File3=logData.bal
+File4=main.bal
+File5=Pins.bal
+File6=WriteMove.bal
+NumberOfLibraries=5
+Library1=core
+Library2=phone
+Library3=serial
+Library4=tts
+Library5=xygraph
+@EndOfDesignText@
+#Region  Project Attributes 
+	#ApplicationLabel: Menu Rekam1
+	#VersionCode: 1
+	#VersionName: 
+	'SupportedOrientations possible values: unspecified, landscape or portrait.
+	#SupportedOrientations: portrait
+	#CanInstallToExternalStorage: False
+#End Region
+
+#Region  Activity Attributes 
+	#FullScreen: False
+	#IncludeTitle: True
+#End Region
+'written by Leo & Gibby
+'Copyright (c) 2014 Texas Instruments Inc.
+'
+'Permission Is hereby granted, free of charge, To any person obtaining a copy
+'of this software AND associated documentation files (the "Software"), To deal
+'In the Software without restriction, including without limitation the rights
+'To use, copy, modify, merge, publish, distribute, sublicense, AND/OR sell
+'copies of the Software, AND To permit persons To whom the Software Is
+'furnished To Do so, subject To the following conditions:
+'
+'The above copyright notice AND this permission notice shall be included In
+'all copies OR substantial portions of the Software.
+'
+'THE SOFTWARE Is PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+'IMPLIED, INCLUDING BUT Not LIMITED To THE WARRANTIES OF MERCHANTABILITY,
+'FITNESS For A PARTICULAR PURPOSE AND NONINFRINGEMENT. In NO EVENT SHALL THE
+'AUTHORS OR COPYRIGHT HOLDERS BE LIABLE For ANY CLAIM, DAMAGES OR OTHER
+'LIABILITY, WHETHER In AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+'OUT OF OR In CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS In
+'THE SOFTWARE.
+'	
+'
+'      Additional libraries are available at http://www.basic4ppc.com/
+' *  XYGraph(version 1.00)
+' *  TTS(version 1.00)
+' *  Serial(version 1.23)
+' *  Phone(version 2.25)
+'
+'
+
+Sub Process_Globals
+	'These global variables will be declared once when the application starts.
+	'These variables can be accessed from all modules.
+	Dim Serial1 As Serial
+	Dim TextReader1 As TextReader
+	Dim TextWriter1 As TextWriter
+	Dim Writer As TextWriter
+	Dim timerDisplay As Timer
+	Dim timerRead As Timer
+	Dim timerAccelerometer As Timer
+	Dim Awake As PhoneWakeState
+	Dim SensorsMap As Map
+	Type SensorData (Name As String, ThreeValues As Boolean)
+	Dim TTS1 As TTS
+	Dim blnSpeech As Boolean
+End Sub
+
+Sub Globals
+	'These global variables will be redeclared each time the activity is created.
+	'These variables can only be accessed from this module.
+
+	' Boolean Variables
+	Private blnLogData As Boolean
+	Dim blnGraphEn As Boolean
+	Private blnLogActivity As Boolean
+	Private blnLogDataStatus As Boolean
+	Private blnSensorStatus As Boolean
+	' Button Variables
+	Private btnSendCommand As Button
+	Private btnQuiet As Button
+	Private btnConnect As Button
+	Private btnDisconnect As Button
+	Private btnRead As Button
+	Private btnDo As Button
+	Private btnSleep As Button
+	Private btnGet As Button
+	Private btnPut As Button
+	Private btnIf As Button
+	Private btnEndif As Button
+	Private btnWrite As Button
+	Private btnErase As Button
+	Private btnMove As Button
+	Private btnQuestion As Button
+	' Checkbox Variables
+	Private chkSensor As CheckBox
+	Private chkLogData As CheckBox
+	' Double Variables
+	Dim graphInterval As Double
+	' Edit Move variables
+	Private edtMoveFrom As EditText
+	Private edtSendCommand As EditText
+	Private edtMoveTo As EditText
+	Private edtSleepValue As EditText
+	Private edtGetCh As EditText
+	Private edtPutCh As EditText
+	Private edtPUTvalue As EditText
+	Private edtIfCh As EditText
+	Private edtCommands As EditText
+	Private edtResponse As EditText
+	Private edtIfValue As EditText
+	Private edtWriteValue As EditText
+	' Graph Variables
+	Dim liveseries As GraphSeries
+	Dim livegraphview As GraphView
+	' Integer Variables
+	Private intSleep As Int
+	Dim yValue As Int
+	Dim xValue As Int
+	' Label Variables
+	Private lblTitle As Label
+	Private lblConnect As Label
+	Private lblXacc As Label
+	Private lblYacc As Label
+	' Map Variables
+	Dim SensorsLabels As Map
+	' String Variables
+	Private strDataFile As String
+	Private lblgl As String
+	' Toggle Buttons
+	Private tglButton As ToggleButton
+	Dim view1 As View
+	Dim xylivegraph As XYGraph
+	Private chkSpeech As CheckBox
+	Private edtGEToverflow As EditText
+	Private edtPUToverflow As EditText
+	Private bthWrite0 As Button
+End Sub
+
+Sub Activity_Create(FirstTime As Boolean)
+	If FirstTime Then
+		Dim ps As PhoneSensors 					'This object is only used to access the type constants
+		Serial1.Initialize("Serial1")			' initalize Seria1 bluetooth connection
+		SensorsMap.Initialize
+		AddSensor(ps.TYPE_ACCELEROMETER, "ACCELEROMETER", True)
+	End If
+	
+	' Init Timers with default poling rate
+	If timerDisplay.IsInitialized = False Then		' initalize timerDisplay to 250 mSeconds
+		timerDisplay.Initialize("timerDisplay",250)
+	End If
+	
+	If timerRead.IsInitialized = False Then
+		timerRead.Initialize("timerRead",200)
+	End If
+	
+	If timerAccelerometer.IsInitialized = False Then
+		timerAccelerometer.Initialize("timerAccelerometer",500)
+	End If
+	' End Timer INITs
+		
+	lblgl = "l"									' load lower case l into variable lblgl
+	blnGraphEn = False							' disable graph
+	graphInterval = 0							' set graph interval to 0
+	
+	' Sensor Labels
+	SensorsLabels.Initialize 'SensorsLabels is not a Process_Globals object so we need to create it each time
+	For i = 0 To SensorsMap.Size - 1
+		Dim ps As PhoneSensors
+		ps = SensorsMap.GetKeyAt(i)
+	Next
+	' Build User Menus	
+	Activity.LoadLayout("main")
+	Activity.AddMenuItem("Connect", "Connect")
+	Activity.AddMenuItem("Pins", "Pins")
+	Activity.AddMenuItem("Write/Move","WriteMove")
+	Activity.AddMenuItem("Log Data","logData")
+	Activity.AddMenuItem("Graph","Graph")
+	Activity.AddMenuItem("Exit", "Exit")
+End Sub
+
+Sub TTS1_Ready (Success As Boolean)
+	If Success Then
+		'enable all views
+		For i = 0 To Activity.NumberOfViews - 1
+			Activity.GetView(i).Enabled = True
+		Next
+		'	btnSpeak_Click 'play first sentence
+	Else
+		Msgbox("Error initializing TTS engine.", "")
+	End If
+End Sub
+
+Sub Activity_Resume
+	' Init variables
+	blnSpeech = False
+	blnLogActivity = False
+	blnLogDataStatus = False
+	blnSensorStatus = False
+	blnLogData = False							' Init blnData to False "Collect Data OFF"
+	strDataFile = "Data.txt"
+	' Init variables
+	Log("Open File: " & strDataFile )
+	If File.Exists(File.DirDefaultExternal,strDataFile) = False Then
+		Writer.Initialize(File.OpenOutput(File.DirDefaultExternal, strDataFile, True))
+	End If
+	
+	Writer.Initialize(File.OpenOutput(File.DirDefaultExternal, strDataFile, True))
+		
+	For i = 0 To SensorsMap.Size - 1
+		Dim ps As PhoneSensors
+		Dim sd As SensorData
+		ps = SensorsMap.GetKeyAt(i)
+		sd = SensorsMap.GetValueAt(i)
+		If ps.StartListening("Sensor") = False Then
+			Log(sd.Name & " is not supported.")
+		End If
+	Next
+	
+	If TTS1.IsInitialized = False Then
+		TTS1.Initialize("TTS1")
+	End If
+	TTS1.SpeechRate = 1
+	TTS1.Pitch = 1
+End Sub
+
+Sub Activity_Pause (UserClosed As Boolean)
+	timerRead.Enabled = False
+	timerAccelerometer.Enabled = False
+	Writer.Close
+	For i = 0 To SensorsMap.Size - 1
+		Dim ps As PhoneSensors
+		ps = SensorsMap.GetKeyAt(i)
+		ps.StopListening
+	Next
+	Awake.ReleaseKeepAlive							'Release phone display let it go to sleep.
+	blnLogActivity = False
+	blnSpeech = False
+	TTS1.Release
+End Sub
+
+Sub btnConnect_Click
+	Dim PairedDevices As Map
+	Dim l As List
+	Dim res As Int
+	
+	PairedDevices = Serial1.GetPairedDevices
+	l.Initialize
+	For	I = 0 To PairedDevices.Size -1
+		l.Add(PairedDevices.GetKeyAt(I))
+	Next
+	
+	res = InputList(l,"Chose device ", -1)
+	
+	If res <> DialogResponse.CANCEL Then
+		Serial1.Connect(PairedDevices.Get(l.Get(res)))
+		Log("connected")
+	End If
+	Awake.KeepAlive(True)								' Keep phone awake do not let it go to sleep while connected
+End Sub
+
+Sub btnDisconnect_Click
+	Serial1.Disconnect		' release serial port
+	Log("Disconnected")		' log event has taken place
+	ToastMessageShow("Disconnected successfully",False)	' temp message to display telling user had
+														' disconnected bluetooth device
+	Awake.ReleaseKeepAlive								'Release phone display let it go to sleep.
+End Sub
+
+Sub Serial1_Connected (Success As Boolean)				' this activity begins once bluetooth connection
+														' is established.....		
+	If Success Then
+		ToastMessageShow("Connected successfully",False)
+		TextReader1.Initialize(Serial1.InputStream)
+		TextWriter1.Initialize(Serial1.OutputStream)
+		intSleep = 100
+		timerRead.Interval = 100
+		'rekam1.question									' do twice to establish communication
+		'sleep(200)
+		'rekam1.question	
+		'sleep(200)
+		'rekam1.quiet									' turn off OK echo 
+		'sleep(200)
+		timerRead.Enabled = True
+	Else
+		Msgbox(LastException.Message, "Error connection")
+	End If
+End Sub	
+'
+' Build Menus
+' Texas Instruments
+' Walt L Culpepper
+' 2014-4-22
+'
+Sub Connect_Click						' load layout when Connect menu button is pressed
+	RemoveAllViews
+	Activity.LoadLayout("ConnectBT")	' Layout Name
+	Log("BT")
+	lblConnect.Text = "Connecting to REKAM device"
+	blnGraphEn = False
+	intSleep = 100
+	timerRead.Interval = 100
+	blnLogActivity = False
+End Sub
+
+Sub Pins_Click						' load layout when Pins menu button is pressed
+	RemoveAllViews
+	Activity.LoadLayout("Pins")		' Layout Name
+	Log("Pins")
+	lblConnect.Text = "Pins / Program"
+	blnGraphEn = False
+	timerRead.Interval = 100
+	intSleep = 100
+	blnLogActivity = False
+End Sub
+
+Sub WriteMove_Click						' load layout when Write/Move menu button is pressed
+	RemoveAllViews
+	Activity.LoadLayout("WriteMove")	' Layout Name
+	Log("Write/Move")
+	lblConnect.Text = "Write / Move Menu"
+	blnGraphEn = False
+	timerRead.Interval = 100
+	intSleep = 100
+	blnLogActivity = False
+End Sub
+
+Sub logData_Click
+	RemoveAllViews
+	Activity.LoadLayout("logData")	' Layout Name
+	Log("cmd " & "Log Data")
+	lblConnect.Text = "Log Data Menu"
+	chkLogData.Checked = blnLogData
+	chkLogData.Checked = blnLogDataStatus
+	chkSensor.Checked = blnSensorStatus 
+	chkSpeech.Checked = blnSpeech
+	blnGraphEn = False
+	timerRead.Interval = 5
+	intSleep = 10
+	blnLogActivity = True
+End Sub
+
+Sub Graph_Click
+	RemoveAllViews
+	Activity.LoadLayout("Graph")	' Layout Name
+	Log("cmd " & "Graph Pin")
+	InitGraph						' build graph on Graph Layout
+	blnGraphEn = True
+	timerRead.Interval = 5
+	intSleep = 10
+	blnLogActivity = False
+End Sub
+
+Sub Exit_Click
+	RemoveAllViews
+	Log("cmd " & "Exit")			' Layout Name
+	lblConnect.Text = "Exit Activity"
+	blnGraphEn = False
+	Awake.ReleaseKeepAlive			'Release phone display let it go to sleep.
+	blnLogActivity = False
+	Activity.Finish
+End Sub
+
+Sub Read_Bluetooth							' Read response from REKAM1 platform
+	Dim Voltage As Float
+	Dim btData As Boolean
+	Dim txtReadData As String
+	timerRead.Enabled = False				' Turn off Read Timer no interupts at this time
+	timerDisplay.Enabled = True
+	btData = TextReader1.Ready				' Test for bytes at com port
+	If btData = True Then
+		edtResponse.Text = ""	
+	End If
+	Do While btData = True
+		txtReadData = TextReader1.ReadLine
+		If blnSpeech = True Then
+			TTS1.Speak(txtReadData, True)
+		End If
+		edtResponse.Text = edtResponse.Text & txtReadData & CRLF
+		If blnLogData = True Then 											' Log data to files if blnLogData = TRUE
+			Writer.Write(txtReadData & CRLF)
+		End If
+		If blnGraphEn = True Then
+			Voltage = 3.2/1024 * txtReadData
+			liveseries.appendData(liveseries, graphInterval,Voltage, True, 256)
+			graphInterval = graphInterval +1
+		End If
+		sleep(intSleep)
+		'edtResponse.Text = "More Data"
+		btData = TextReader1.Ready			' Test for bytes at comport
+		DoEvents
+	Loop 
+	'edtResponse.Text = "Left the While loop"
+	lblConnect.Text = "NO DATA PRESENT"
+	timerDisplay.Enabled = False
+	timerRead.Enabled = True				' Turn on Read Timer
+	'edtResponse.Text = "Read Block Completed"
+End Sub	
+' Texas Instruments
+' Walt Culpepper
+' 2014-4-15
+'Service Button clicks
+'
+Sub btnQuestion_Click
+	rekam1.question
+	If blnLogData = True Then 
+		Writer.Write("? " & CRLF)
+	End If
+	sleep(200)
+End Sub
+
+Sub btnQuiet_Click
+	rekam1.quiet
+	If blnLogData = True Then 
+		Writer.Write("quiet " & CRLF)
+	End If
+	sleep(200)
+End Sub
+
+Sub btnRead_Click
+	edtCommands.Text = "read " & CRLF
+	rekam1.Read
+	If blnLogData = True Then 
+		Writer.Write("read " & CRLF)
+	End If
+	sleep(200)
+End Sub
+
+Sub btnDo_Click
+	edtCommands.Text = "do " & CRLF
+	rekam1.run
+	If blnLogData = True Then 
+		Writer.Write("do " & CRLF)
+	End If
+	sleep(200)
+End Sub
+
+Sub btnSleep_Click
+	edtCommands.Text = "sleep " & edtSleepValue.Text & CRLF
+	rekam1.sleep(edtSleepValue.Text)
+	If blnLogData = True Then 
+		Writer.Write("sleep " & edtSleepValue.Text & CRLF)
+	End If
+	sleep(200)
+End Sub
+
+Sub btnGet_Click
+	edtCommands.Text = "get" & edtGEToverflow.Text & " " & edtGetCh.Text & CRLF
+	rekam1.get(edtGEToverflow.Text, edtGetCh.Text)
+	If blnLogData = True Then 
+		Writer.Write("get" & edtGEToverflow.Text & " " & edtGetCh.Text & CRLF)
+	End If
+	sleep(200)
+	edtGEToverflow.Text = ""			' Clear field
+End Sub
+
+Sub btnPut_Click
+	edtCommands.Text = "put" & edtPUToverflow.Text & " " & edtPutCh.Text & " " & edtPUTvalue.Text & CRLF
+	rekam1.put(edtPUToverflow.Text, edtPutCh.Text, edtPUTvalue.Text)
+	If blnLogData = True Then 
+		Writer.Write("put" & edtPUToverflow.Text & " "  & edtPutCh.Text & " " & edtPUTvalue.Text & CRLF)
+	End If
+	sleep(200)
+	edtPUToverflow.Text = ""
+End Sub
+
+Sub btnIf_Click
+	edtCommands.Text = "if" & lblgl &" " & edtIfCh.Text & " " & edtIfValue.Text & CRLF
+	rekam1.condIf(lblgl, edtIfCh.Text, edtIfValue.Text)
+	If blnLogData = True Then 
+		Writer.Write("if " & edtIfCh.Text & " " & edtIfValue.Text & CRLF)
+	End If
+	sleep(200)
+End Sub
+
+Sub btnEndif_Click
+	edtCommands.Text = "endif" & CRLF
+	rekam1.endif
+	If blnLogData = True Then 
+		Writer.Write("endif " & CRLF)
+	End If
+	sleep(200)
+End Sub
+
+Sub btnWrite_Click
+	edtCommands.Text = "write" & CRLF
+	rekam1.write(edtWriteValue.Text)
+	If blnLogData = True Then 
+		Writer.Write("write " & CRLF)
+	End If
+	sleep(200)
+End Sub
+
+Sub bthWrite0_Click
+	edtCommands.Text = "write 0" & CRLF
+	rekam1.write("0")
+	If blnLogData = True Then 
+		Writer.Write("write 0" & CRLF)
+	End If
+	sleep(200)
+End Sub
+
+Sub btnErase_Click
+	edtCommands.Text = "erase" & CRLF
+	rekam1.erase
+	If blnLogData = True Then 
+		Writer.Write("erase " & CRLF)
+	End If
+	sleep(200)
+End Sub
+Sub btnMove_Click
+	edtCommands.Text = "move " &  edtMoveFrom.Text & " " & edtMoveTo.Text & CRLF
+	rekam1.move(edtMoveFrom.Text,edtMoveTo.Text)
+	If blnLogData = True Then 
+		Writer.Write("move " & edtMoveFrom.Text & " " & edtMoveTo.Text & CRLF)
+	End If
+	sleep(200)
+End Sub
+
+Sub btnSendCommand_Click
+	Dim cmd As String
+	cmd = edtSendCommand.Text & Chr(13)
+	Log(cmd)
+	If blnSpeech = True Then
+		TTS1.Speak(cmd, True)
+	End If
+	TextWriter1.write(cmd)
+	TextWriter1.Flush
+End Sub
+'
+' Texas Instruments
+' Walt Culpepper
+' 2014-4-15
+' Service EnterPressed Buttons
+'
+Sub chkSensor_CheckedChange(Checked As Boolean)
+	Dim blk As String
+	blk = ""
+	If chkSensor.Checked = True Then
+		timerAccelerometer.Enabled = True
+	Else 
+		timerAccelerometer.Enabled = False
+		rekam1.put(blk,18,0)
+		sleep(100)
+		rekam1.put(blk,19,0)
+		sleep(100)
+	End If
+	blnSensorStatus  = chkSensor.Checked 
+End Sub
+
+Sub edtGEToverflow_EnterPressed
+	Dim overFlow As String
+	overFlow = edtGEToverflow.Text
+	overFlow = overFlow.ToLowerCase
+	edtGEToverflow.Text = overFlow
+End Sub
+
+Sub edtPUToverflow_EnterPressed
+	Dim overFlow As String
+	overFlow = edtPUToverflow.Text
+	overFlow = overFlow.ToLowerCase
+	edtPUToverflow.Text = overFlow
+End Sub
+
+Sub edtGEToverflow_FocusChanged (HasFocus As Boolean)
+	Dim overFlow As String
+	overFlow = edtGEToverflow.Text
+	overFlow = overFlow.ToLowerCase
+	edtGEToverflow.Text = overFlow
+End Sub
+Sub edtPUToverflow_FocusChanged (HasFocus As Boolean)
+	Dim overFlow As String
+	overFlow = edtPUToverflow.Text
+	overFlow = overFlow.ToLowerCase
+	edtPUToverflow.Text = overFlow
+End Sub
+
+Sub edtSleepValue_EnterPressed
+	Dim value As String
+	Dim maxRange As String
+	Dim minRange As String
+	value = edtSleepValue.Text
+	maxRange = "32767"
+	minRange = "-32768"
+	edtSleepValue.Text = scaleControlValues(value,maxRange,minRange)
+End Sub
+
+Sub edtGetCh_EnterPressed
+	Dim value As String
+	Dim maxRange As String
+	Dim minRange As String
+	value = edtGetCh.Text
+	maxRange = "19"
+	minRange = "1"
+	edtGetCh.Text = scaleControlValues(value,maxRange,minRange)
+End Sub
+
+Sub edtPutCh_EnterPressed
+	Dim value As String
+	Dim maxRange As String
+	Dim minRange As String
+	value = edtPutCh.Text
+	maxRange = "19"
+	minRange = "1"
+	edtPutCh.Text = scaleControlValues(value,maxRange,minRange)
+End Sub
+
+Sub edtPUTvalue_EnterPressed
+	Dim value As String
+	Dim maxRange As String
+	Dim minRange As String
+	value = edtPUTvalue.Text
+	maxRange = "32767"
+	minRange = "-32768"
+	edtPUTvalue.Text = scaleControlValues(value,maxRange,minRange)
+End Sub
+
+Sub edtIfCh_EnterPressed
+	Dim value As String
+	Dim maxRange As String
+	Dim minRange As String
+	value = edtIfValue.Text
+	maxRange = "19"
+	minRange = "1"
+	edtIfValue.Text = scaleControlValues(value,maxRange,minRange)
+End Sub
+
+Sub edtIfValue_EnterPressed
+	Dim value As String
+	Dim maxRange As String
+	Dim minRange As String
+	value = edtIfValue.Text
+	maxRange = "32767"
+	minRange = "-32768"
+	edtIfValue.Text = scaleControlValues(value,maxRange,minRange)
+End Sub
+
+Sub edtWriteValue_EnterPressed
+	Dim value As String
+	Dim maxRange As String
+	Dim minRange As String
+	value = edtWriteValue.Text
+	maxRange = "19"
+	minRange = "1"
+	edtWriteValue.Text = scaleControlValues(value,maxRange,minRange)
+End Sub
+
+Sub edtMoveFrom_EnterPressed
+	Dim value As String
+	Dim maxRange As String
+	Dim minRange As String
+	value = edtMoveFrom.Text
+	maxRange = "19"
+	minRange = "1"
+	edtMoveFrom.Text = scaleControlValues(value,maxRange,minRange)
+End Sub
+
+Sub edtMoveTo_EnterPressed
+	Dim value As String
+	Dim maxRange As String
+	Dim minRange As String
+	value = edtMoveTo.Text
+	maxRange = "10000"
+	minRange = "1"
+	edtMoveTo.Text = scaleControlValues(value,maxRange,minRange)
+End Sub
+
+Sub edtLogData_EnterPressed
+	Writer.Initialize(File.OpenOutput(File.DirDefaultExternal, strDataFile, True))
+End Sub
+
+Sub RemoveAllViews    
+	Dim i As Int        
+	For i = Activity.NumberOfViews - 1 To 0 Step -1        
+		Activity.RemoveViewAt(i)    
+	Next
+End Sub
+
+Sub scaleControlValues(value As String, maxRange As String, minRange As String) As String
+	If value > maxRange Then value = maxRange
+	If value < minRange Then value = minRange
+	Return value
+End Sub
+
+Sub tglButton_CheckedChange(Checked As Boolean)
+	If tglButton.Checked = True Then
+		lblgl = "g"
+	Else
+		lblgl = "l"
+	End If
+End Sub
+
+Sub chkLogData_CheckedChange(Checked As Boolean)
+ 	blnLogData = chkLogData.Checked
+	blnLogDataStatus = chkLogData.Checked
+	Log("Log data " & chkLogData.Checked)
+End Sub
+
+Sub chkSpeech_CheckedChange(Checked As Boolean)
+	blnSpeech = chkSpeech.Checked
+End Sub
+
+Sub InitGraph
+	liveseries.InitializeLiveSeries("A/D Input", Colors.Red, 3)
+	livegraphview.Initialize("line", liveseries)
+	view1 = xylivegraph.PlotSingleLine("REKAM1", livegraphview, liveseries)
+	xylivegraph.setViewPort(livegraphview, 0, 100)
+	xylivegraph.setScrollabe(livegraphview, True)
+	xylivegraph.ShowLegend(livegraphview, True)
+	xylivegraph.setLegendWidth(livegraphview, 250)
+	xylivegraph.setGridColor(livegraphview, Colors.Magenta)
+	xylivegraph.setTextSize(livegraphview, 14)
+	xylivegraph.setHorizontalLabelColor(livegraphview, Colors.Yellow)
+	xylivegraph.setVerticalLabelColor(livegraphview, Colors.Yellow)
+	Activity.AddView(view1, 20, 20, 75%x, 75%y)
+End Sub
+
+Sub Sensor_SensorChanged (Values() As Float)
+	Dim ps As PhoneSensors
+	Dim sd As SensorData
+	Dim maxRange As String
+	Dim minRange As String
+	'
+	maxRange = "100"			' Max value set to 100
+	minRange = "-100"				' Min value set to -100
+	ps = Sender
+	sd = SensorsMap.Get(ps) 'Get the associated SensorData object
+	'
+	If sd.ThreeValues Then
+		If blnLogActivity = True Then
+			xValue = Values(0) 
+			lblXacc.Text = scaleControlValues(xValue,maxRange,minRange)
+			yValue = Values(1) * -1
+			lblYacc.Text = scaleControlValues(yValue,maxRange,minRange)
+		End If	
+	End If
+End Sub
+
+Sub AddSensor(SensorType As Int, Name As String, ThreeValues As Boolean) As SensorData
+	Dim sd As SensorData
+	sd.Initialize
+	sd.Name = Name
+	sd.ThreeValues = ThreeValues
+	Dim ps As PhoneSensors
+	ps.Initialize(SensorType)
+	SensorsMap.Put(ps, sd)
+	Log(Name & " MaxValue = " & ps.MaxValue)
+End Sub
+
+Sub sleep(ms As Long)				' add delay after sent command
+	Dim now As Long
+	If ms > 1000 Then ms = 1000		' don't get carried away with the delay
+									' 1000 mSeconds max
+		now = DateTime.now
+		Do Until (DateTime.now > now + ms)
+			'DoEvents				' removed the doevents to prevent Read_Bluetooth from executing
+									' during sleep period
+		Loop
+	End Sub	
+'	Timers 
+'
+Sub timerDisplay_Tick					' Timer used to propmt user data is being
+									' read back from REKAM1 device..........
+	If lblConnect.Text = "Reading Data"	Then
+		lblConnect.Text = ""
+	Else 
+		lblConnect.Text = "Reading Data"
+	End If
+End Sub
+
+Sub timerRead_Tick
+	Read_Bluetooth
+End Sub
+
+Sub timerAccelerometer_Tick
+	Dim strSpeed As String
+	Dim maxRange As String
+	Dim minRange As String
+	Dim blk As String
+	
+	blk = ""
+'	
+	maxRange = 100
+	minRange =0
+	'
+	edtCommands.Text = " "
+	strSpeed  = yValue
+	Select strSpeed				' Process yValue uses this value for motor speed
+		Case -9,-8,-7,-6,-5,-4,-3,-2,-1,0,1
+			strSpeed = "0"			' percentage of motor speed
+		Case 2
+			strSpeed = "25"			' percentage of motor speed
+		Case 3
+			strSpeed = "50"			' percentage of motor speed
+		Case 4
+			strSpeed = "75"			' percentage of motor speed
+		Case 5
+			strSpeed = "100"		' percentage of motor speed
+		Case Else
+			strSpeed = "100"		' percentage of motor speed	
+	End Select
+	Log("Speed " & strSpeed)
+		
+	Select xValue				' Process xValue use this value to control direction of turn...
+		Case -9,-8,-7,-6,-5
+			rekam1.put(blk,19,scaleControlValues(strSpeed, maxRange, minRange))
+			'edtCommands.Text = "put 19 " & scaleControlValues(strSpeed, maxRange, minRange) & CRLF
+			sleep(5)
+			rekam1.put(blk,18,0) 
+			sleep(5)
+			'edtCommands.Text = "put 18 " & "0" & CRLF
+		Case -4
+			rekam1.put(blk,19,scaleControlValues(strSpeed, maxRange, minRange))
+			'edtCommands.Text = "put 19 " & scaleControlValues(strSpeed, maxRange, minRange) & CRLF
+			sleep(5)
+			rekam1.put(blk,18,25) 
+			sleep(5)
+			'edtCommands.Text = "put 18 " & "25" & CRLF
+		Case -3
+			rekam1.put(blk,19,scaleControlValues(strSpeed, maxRange, minRange))
+			'edtCommands.Text = "put 19 " & scaleControlValues(strSpeed, maxRange, minRange) & CRLF
+			sleep(5)
+			rekam1.put(blk,18,50) 
+			sleep(5)
+			'edtCommands.Text = "put 18 " & "50" & CRLF
+		Case -2
+			rekam1.put(blk,19,scaleControlValues(strSpeed, maxRange, minRange))
+			'edtCommands.Text = "put 18 " & scaleControlValues(strSpeed, maxRange, minRange) & CRLF
+			sleep(5)
+			rekam1.put(blk,18,75) 
+			sleep(5)
+			'edtCommands.Text = "put 18 "  & "75" & CRLF
+		Case -1, 0, 1
+			rekam1.put(blk,18,scaleControlValues(strSpeed, maxRange, minRange))
+			'edtCommands.Text = "put 18 0" &  CRLF
+			sleep(5)
+			rekam1.put(blk,19,scaleControlValues(strSpeed, maxRange, minRange)) 
+			sleep(5)
+			'edtCommands.Text = "put 19 0"  &  CRLF
+		Case 2
+			rekam1.put(blk,18,scaleControlValues(strSpeed, maxRange, minRange))
+			'edtCommands.Text = "put 18 " & scaleControlValues(strSpeed, maxRange, minRange) & CRLF
+			sleep(5)
+			rekam1.put(blk,19,75) 
+			sleep(5)
+			'edtCommands.Text = "put 19 " & "75" & CRLF
+		Case 3
+			rekam1.put(blk,18,scaleControlValues(strSpeed, maxRange, minRange))
+			'edtCommands.Text = "put 18 " & scaleControlValues(strSpeed, maxRange, minRange) & CRLF
+			sleep(5)
+			rekam1.put(blk,19,50) 
+			sleep(5)
+			'edtCommands.Text = "put 19 " & "50" & CRLF
+		Case 4
+			rekam1.put(blk,18,scaleControlValues(strSpeed, maxRange, minRange))
+			'edtCommands.Text = "put 18 " & scaleControlValues(strSpeed, maxRange, minRange) & CRLF
+			sleep(5)
+			rekam1.put(blk,19,25) 
+			sleep(5)
+			'edtCommands.Text = "put 19 " & "25" & CRLF
+		Case 5,6,7,8,9
+			rekam1.put(blk,18,scaleControlValues(strSpeed, maxRange, minRange))
+			'edtCommands.Text = "put 18 " & scaleControlValues(strSpeed, maxRange, minRange) & CRLF
+			sleep(5)
+			rekam1.put(blk,19,0) 
+			sleep(5)
+			'edtCommands.Text = "put 19 " & "0" & CRLF
+	End Select
+End Sub
+
+
